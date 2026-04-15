@@ -54,3 +54,8 @@ design-docs/
 !.stably/docs/
 .playwright-cli
 .validate-ui-screenshots/
+.stably-browser
+
+# Playwright
+test-results/
+playwright-report/
