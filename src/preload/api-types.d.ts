@@ -56,6 +56,7 @@ import type {
   BrowserPopupEvent
 } from '../../shared/browser-guest-events'
 import type { CliInstallStatus } from '../../shared/cli-install-types'
+import type { E2EConfig } from '../../shared/e2e-config'
 import type { RuntimeStatus, RuntimeSyncWindowGraph } from '../../shared/runtime-types'
 import type {
   ClaudeUsageBreakdownKind,
@@ -203,6 +204,9 @@ export type CodexUsageApi = {
 }
 
 export type PreloadApi = {
+  e2e: {
+    getConfig: () => E2EConfig
+  }
   repos: {
     list: () => Promise<Repo[]>
     add: (args: { path: string; kind?: 'git' | 'folder' }) => Promise<Repo>
