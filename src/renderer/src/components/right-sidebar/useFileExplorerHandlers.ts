@@ -2,7 +2,9 @@ import { useCallback } from 'react'
 import type React from 'react'
 import type { RefObject } from 'react'
 import { detectLanguage } from '@/lib/language-detect'
+import { useAppStore } from '@/store'
 import type { TreeNode } from './file-explorer-types'
+import { notifyEditorExternalFileChange } from '../editor/editor-autosave'
 
 type UseFileExplorerHandlersParams = {
   activeWorktreeId: string | null
@@ -43,6 +45,23 @@ export function useFileExplorerHandlers({
         toggleDir(activeWorktreeId, node.path)
         return
       }
+
+      const existingOpenFile = useAppStore
+        .getState()
+        .openFiles.find((file) => file.filePath === node.path)
+      if (existingOpenFile && !existingOpenFile.isDirty) {
+        // Why: the filesystem watcher only runs while the Explorer panel is
+        // mounted. If a terminal edit happens while another sidebar tab is
+        // active, re-selecting the file from Explorer should still refresh the
+        // clean tab from disk instead of reusing stale cached contents.
+        const worktreePath = node.path.slice(0, node.path.length - node.relativePath.length - 1)
+        notifyEditorExternalFileChange({
+          worktreeId: activeWorktreeId,
+          worktreePath,
+          relativePath: node.relativePath
+        })
+      }
+
       openFile({
         filePath: node.path,
         relativePath: node.relativePath,

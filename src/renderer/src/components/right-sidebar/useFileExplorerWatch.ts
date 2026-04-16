@@ -3,9 +3,11 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { FsChangedPayload } from '../../../../shared/types'
 import type { DirCache } from './file-explorer-types'
 import type { InlineInput } from './FileExplorerRow'
+import { normalizeRelativePath } from '@/lib/path'
 import { normalizeAbsolutePath } from './file-explorer-paths'
 import { dirname } from '@/lib/path'
 import { getConnectionId } from '@/lib/connection-context'
+import { notifyEditorExternalFileChange } from '../editor/editor-autosave'
 import {
   purgeDirCacheSubtree,
   purgeExpandedDirsSubtree,
@@ -23,6 +25,31 @@ type UseFileExplorerWatchParams = {
   refreshTree: () => Promise<void>
   inlineInput: InlineInput | null
   dragSourcePath: string | null
+}
+
+export function getExternalFileChangeRelativePath(
+  worktreePath: string,
+  absolutePath: string,
+  isDirectory: boolean | undefined
+): string | null {
+  if (isDirectory === true) {
+    return null
+  }
+
+  const normalizedWorktreePath = normalizeAbsolutePath(worktreePath)
+  const normalizedAbsolutePath = normalizeAbsolutePath(absolutePath)
+  const worktreePrefix = `${normalizedWorktreePath}/`
+
+  if (!normalizedAbsolutePath.startsWith(worktreePrefix)) {
+    return null
+  }
+
+  // Why: EditorPanel only reloads open tabs after the renderer emits
+  // `orca:editor-external-file-change` with a worktree-relative path. The
+  // filesystem watcher reports absolute paths, so normalize them here before
+  // the explorer refresh path returns; otherwise terminal edits refresh the
+  // tree but leave the editor's cached file contents stale.
+  return normalizeRelativePath(normalizedAbsolutePath.slice(worktreePrefix.length))
 }
 
 /**
@@ -112,10 +139,16 @@ export function useFileExplorerWatch({
 
       // Collect directories that need refreshing
       const dirsToRefresh = new Set<string>()
+      const changedFiles = new Set<string>()
       let needsFullRefresh = false
 
       for (const evt of payload.events) {
         const normalizedPath = normalizeAbsolutePath(evt.absolutePath)
+        const externalFileChangeRelativePath = getExternalFileChangeRelativePath(
+          currentWorktreePath,
+          normalizedPath,
+          evt.isDirectory
+        )
 
         if (evt.kind === 'overflow') {
           needsFullRefresh = true
@@ -157,11 +190,17 @@ export function useFileExplorerWatch({
           if (parent in cache) {
             dirsToRefresh.add(parent)
           }
+          if (externalFileChangeRelativePath) {
+            changedFiles.add(externalFileChangeRelativePath)
+          }
         } else if (evt.kind === 'create') {
           // Invalidate the parent directory
           const parent = normalizeAbsolutePath(dirname(normalizedPath))
           if (parent in cache) {
             dirsToRefresh.add(parent)
+          }
+          if (externalFileChangeRelativePath) {
+            changedFiles.add(externalFileChangeRelativePath)
           }
         } else if (evt.kind === 'update') {
           // Why: directory update events invalidate that directory. File-content
@@ -170,8 +209,9 @@ export function useFileExplorerWatch({
             if (normalizedPath in cache) {
               dirsToRefresh.add(normalizedPath)
             }
+          } else if (externalFileChangeRelativePath) {
+            changedFiles.add(externalFileChangeRelativePath)
           }
-          // File updates: ignored in v1
         }
         // 'rename' is deferred to v2 (design §5.3)
       }
@@ -179,6 +219,14 @@ export function useFileExplorerWatch({
       if (needsFullRefresh) {
         void refreshTreeRef.current()
         return
+      }
+
+      for (const relativePath of changedFiles) {
+        notifyEditorExternalFileChange({
+          worktreeId: wtId,
+          worktreePath: currentWorktreePath,
+          relativePath
+        })
       }
 
       // Only refresh directories that are already loaded (in cache) and are
