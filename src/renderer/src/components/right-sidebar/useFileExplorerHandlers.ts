@@ -4,10 +4,14 @@ import type { RefObject } from 'react'
 import { detectLanguage } from '@/lib/language-detect'
 import { useAppStore } from '@/store'
 import type { TreeNode } from './file-explorer-types'
-import { notifyEditorExternalFileChange } from '../editor/editor-autosave'
+import {
+  getOpenFilesForExternalFileChange,
+  notifyEditorExternalFileChange
+} from '../editor/editor-autosave'
 
 type UseFileExplorerHandlersParams = {
   activeWorktreeId: string | null
+  worktreePath: string | null
   openFile: (params: {
     filePath: string
     relativePath: string
@@ -29,6 +33,7 @@ type UseFileExplorerHandlersReturn = {
 
 export function useFileExplorerHandlers({
   activeWorktreeId,
+  worktreePath,
   openFile,
   pinFile,
   toggleDir,
@@ -46,20 +51,29 @@ export function useFileExplorerHandlers({
         return
       }
 
-      const existingOpenFile = useAppStore
-        .getState()
-        .openFiles.find((file) => file.filePath === node.path)
-      if (existingOpenFile && !existingOpenFile.isDirty) {
-        // Why: the filesystem watcher only runs while the Explorer panel is
-        // mounted. If a terminal edit happens while another sidebar tab is
-        // active, re-selecting the file from Explorer should still refresh the
-        // clean tab from disk instead of reusing stale cached contents.
-        const worktreePath = node.path.slice(0, node.path.length - node.relativePath.length - 1)
-        notifyEditorExternalFileChange({
+      // Why: the filesystem watcher only runs while the Explorer panel is
+      // mounted. If a terminal edit happens while another sidebar tab is
+      // active, re-selecting the file from Explorer should still refresh the
+      // clean tab from disk instead of reusing stale cached contents. Skip
+      // the notification when worktreePath is null (not yet resolved) because
+      // downstream consumers rely on it to key per-worktree state. Use
+      // `getOpenFilesForExternalFileChange` so the edit tab AND any unstaged
+      // diff tab for the same file are both considered: the autosave
+      // controller clears drafts for every match, so emitting while any
+      // matching tab is dirty would silently destroy unsaved edits.
+      if (worktreePath) {
+        const target = {
           worktreeId: activeWorktreeId,
           worktreePath,
           relativePath: node.relativePath
-        })
+        }
+        const matchingFiles = getOpenFilesForExternalFileChange(
+          useAppStore.getState().openFiles,
+          target
+        )
+        if (matchingFiles.length > 0 && matchingFiles.every((file) => !file.isDirty)) {
+          notifyEditorExternalFileChange(target)
+        }
       }
 
       openFile({
@@ -70,7 +84,7 @@ export function useFileExplorerHandlers({
         mode: 'edit'
       })
     },
-    [activeWorktreeId, openFile, toggleDir, setSelectedPath]
+    [activeWorktreeId, worktreePath, openFile, toggleDir, setSelectedPath]
   )
 
   const handleDoubleClick = useCallback(

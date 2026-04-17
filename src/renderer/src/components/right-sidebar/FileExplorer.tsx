@@ -248,6 +248,7 @@ function FileExplorerInner(): React.JSX.Element {
 
   const { handleClick, handleDoubleClick, handleWheelCapture } = useFileExplorerHandlers({
     activeWorktreeId,
+    worktreePath,
     openFile,
     pinFile,
     toggleDir,
