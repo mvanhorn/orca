@@ -693,6 +693,12 @@ export const createTerminalSlice: StateCreator<AppState, [], [], TerminalSlice> 
       const shouldResetGlobalBrowser = isActiveWorktree && hadBrowserTabs
 
       return {
+        // Why: if the shut-down worktree stays selected until the async PTY
+        // kill round-trip finishes, Terminal.tsx can observe an "active but
+        // renderableTabCount === 0" worktree and auto-create a replacement
+        // terminal. Clear selection in the same synchronous state transition
+        // that nulls the PTYs so shutdown cannot resurrect itself.
+        ...(isActiveWorktree ? { activeWorktreeId: null } : {}),
         tabsByWorktree: nextTabsByWorktree,
         ptyIdsByTabId: nextPtyIdsByTabId,
         runtimePaneTitlesByTabId: nextRuntimePaneTitlesByTabId,

@@ -35,8 +35,6 @@ const WorktreeContextMenu = React.memo(function WorktreeContextMenu({ worktree, 
   const openModal = useAppStore((s) => s.openModal)
   const repos = useAppStore((s) => s.repos)
   const shutdownWorktreeTerminals = useAppStore((s) => s.shutdownWorktreeTerminals)
-  const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
-  const setActiveWorktree = useAppStore((s) => s.setActiveWorktree)
   const clearWorktreeDeleteState = useAppStore((s) => s.clearWorktreeDeleteState)
   const deleteState = useAppStore((s) => s.deleteStateByWorktreeId[worktree.id])
   const [menuOpen, setMenuOpen] = useState(false)
@@ -99,10 +97,7 @@ const WorktreeContextMenu = React.memo(function WorktreeContextMenu({ worktree, 
 
   const handleCloseTerminals = useCallback(async () => {
     await shutdownWorktreeTerminals(worktree.id)
-    if (activeWorktreeId === worktree.id) {
-      setActiveWorktree(null)
-    }
-  }, [worktree.id, shutdownWorktreeTerminals, activeWorktreeId, setActiveWorktree])
+  }, [worktree.id, shutdownWorktreeTerminals])
 
   const handleDelete = useCallback(() => {
     setMenuOpen(false)

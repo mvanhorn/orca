@@ -11,6 +11,10 @@ function createSnapshot(overrides: Partial<AppState> = {}): AppState {
       'wt-1': [{ id: 'tab-1', title: 'shell', ptyId: 'pty-1', worktreeId: 'wt-1' }],
       'wt-2': [{ id: 'tab-2', title: 'editor', ptyId: null, worktreeId: 'wt-2' }]
     },
+    ptyIdsByTabId: {
+      'tab-1': ['pty-1'],
+      'tab-2': []
+    },
     terminalLayoutsByTabId: {
       'tab-1': { root: null, activeLeafId: null, expandedLeafId: null }
     },
@@ -82,6 +86,21 @@ describe('buildWorkspaceSessionPayload', () => {
     const payload = buildWorkspaceSessionPayload(createSnapshot())
 
     expect(payload.activeWorktreeIdsOnShutdown).toEqual(['wt-1'])
+  })
+
+  it('ignores stale tab.ptyId values when the authoritative PTY map is empty', () => {
+    const payload = buildWorkspaceSessionPayload(
+      createSnapshot({
+        tabsByWorktree: {
+          'wt-1': [{ id: 'tab-1', title: 'shell', ptyId: 'stale-pty', worktreeId: 'wt-1' }]
+        },
+        ptyIdsByTabId: {
+          'tab-1': []
+        }
+      })
+    )
+
+    expect(payload.activeWorktreeIdsOnShutdown).toEqual([])
   })
 
   it('persists only edit-mode files and resets browser loading state', () => {

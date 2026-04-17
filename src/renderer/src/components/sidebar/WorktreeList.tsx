@@ -12,6 +12,7 @@ import { isGitRepoKind } from '../../../../shared/repo-kind'
 import { buildWorktreeComparator } from './smart-sort'
 import { type Row, buildRows, getGroupKeyForWorktree } from './worktree-list-groups'
 import { computeVisibleWorktreeIds, setVisibleWorktreeIds } from './visible-worktrees'
+import { hasLivePtyForTab } from '@/lib/terminal-liveness'
 import { useModifierHint } from '@/hooks/useModifierHint'
 
 // How long to wait after a sortEpoch bump before actually re-sorting.
@@ -412,6 +413,7 @@ const WorktreeList = React.memo(function WorktreeList() {
   // Read tabsByWorktree when needed for filtering or sorting
   const needsTabs = showActiveOnly || sortBy === 'smart'
   const tabsByWorktree = useAppStore((s) => (needsTabs ? s.tabsByWorktree : null))
+  const ptyIdsByTabId = useAppStore((s) => (needsTabs ? s.ptyIdsByTabId : null))
   const browserTabsByWorktree = useAppStore((s) =>
     showActiveOnly ? s.browserTabsByWorktree : null
   )
@@ -518,7 +520,7 @@ const WorktreeList = React.memo(function WorktreeList() {
     if (sortBy === 'smart' && !sessionHasHadPty.current) {
       const hasAnyLivePty = Object.values(state.tabsByWorktree)
         .flat()
-        .some((t) => t.ptyId)
+        .some((tab) => hasLivePtyForTab(tab, state.ptyIdsByTabId))
       if (hasAnyLivePty) {
         sessionHasHadPty.current = true
       } else {
@@ -532,7 +534,14 @@ const WorktreeList = React.memo(function WorktreeList() {
     const currentRepoMap = new Map(state.repos.map((r) => [r.id, r]))
     const currentTabs = state.tabsByWorktree
     allWorktrees.sort(
-      buildWorktreeComparator(sortBy, currentTabs, currentRepoMap, state.prCache, Date.now())
+      buildWorktreeComparator(
+        sortBy,
+        currentTabs,
+        state.ptyIdsByTabId,
+        currentRepoMap,
+        state.prCache,
+        Date.now()
+      )
     )
     return allWorktrees.map((w) => w.id)
     // debouncedSortEpoch is an intentional trigger: it's not read inside the
@@ -559,6 +568,7 @@ const WorktreeList = React.memo(function WorktreeList() {
       searchQuery,
       showActiveOnly,
       tabsByWorktree,
+      ptyIdsByTabId: ptyIdsByTabId ?? undefined,
       browserTabsByWorktree,
       activeWorktreeId,
       repoMap,
@@ -581,6 +591,7 @@ const WorktreeList = React.memo(function WorktreeList() {
     activeWorktreeId,
     repoMap,
     tabsByWorktree,
+    ptyIdsByTabId,
     browserTabsByWorktree,
     sortedIds,
     prCache,

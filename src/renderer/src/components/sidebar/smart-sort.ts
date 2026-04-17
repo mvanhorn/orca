@@ -1,4 +1,5 @@
 import { detectAgentStatusFromTitle } from '@/lib/agent-status'
+import { hasLivePtyForTab } from '@/lib/terminal-liveness'
 import { branchName } from '@/lib/git-utils'
 import type { Worktree, Repo, TerminalTab } from '../../../../shared/types'
 
@@ -35,9 +36,10 @@ function computeSmartScoreFromSignals(
   worktree: Worktree,
   tabs: TerminalTab[],
   hasRecentPR: boolean,
-  now: number
+  now: number,
+  ptyIdsByTabId?: Record<string, string[]>
 ): number {
-  const liveTabs = tabs.filter((t) => t.ptyId)
+  const liveTabs = tabs.filter((tab) => hasLivePtyForTab(tab, ptyIdsByTabId))
 
   let score = 0
 
@@ -103,6 +105,7 @@ function getSmartSortCandidate(
 export function buildWorktreeComparator(
   sortBy: SortBy,
   tabsByWorktree: Record<string, TerminalTab[]> | null,
+  ptyIdsByTabId: Record<string, string[]> | null,
   repoMap: Map<string, Repo>,
   prCache: Record<string, PRCacheEntry> | null,
   now: number = Date.now(),
@@ -132,13 +135,15 @@ export function buildWorktreeComparator(
             smartB.worktree,
             smartB.tabs,
             smartB.hasRecentPRSignal,
-            now
+            now,
+            ptyIdsByTabId ?? undefined
           ) -
             computeSmartScoreFromSignals(
               smartA.worktree,
               smartA.tabs,
               smartA.hasRecentPRSignal,
-              now
+              now,
+              ptyIdsByTabId ?? undefined
             ) ||
           smartB.worktree.lastActivityAt - smartA.worktree.lastActivityAt ||
           a.displayName.localeCompare(b.displayName)
@@ -172,12 +177,13 @@ export function buildWorktreeComparator(
 export function sortWorktreesSmart(
   worktrees: Worktree[],
   tabsByWorktree: Record<string, TerminalTab[]>,
+  ptyIdsByTabId: Record<string, string[]> | null,
   repoMap: Map<string, Repo>,
   prCache: Record<string, PRCacheEntry> | null
 ): Worktree[] {
   const hasAnyLivePty = Object.values(tabsByWorktree)
     .flat()
-    .some((t) => t.ptyId)
+    .some((tab) => hasLivePtyForTab(tab, ptyIdsByTabId ?? undefined))
 
   if (!hasAnyLivePty) {
     // Cold start: use persisted sortOrder snapshot
@@ -187,7 +193,7 @@ export function sortWorktreesSmart(
   }
 
   return [...worktrees].sort(
-    buildWorktreeComparator('smart', tabsByWorktree, repoMap, prCache, Date.now())
+    buildWorktreeComparator('smart', tabsByWorktree, ptyIdsByTabId, repoMap, prCache, Date.now())
   )
 }
 
@@ -207,6 +213,7 @@ export function sortWorktreesSmart(
 export function computeSmartScore(
   worktree: Worktree,
   tabsByWorktree: Record<string, TerminalTab[]> | null,
+  ptyIdsByTabId: Record<string, string[]> | null,
   repoMap: Map<string, Repo> | null,
   prCache: Record<string, PRCacheEntry> | null,
   now: number = Date.now()
@@ -219,6 +226,7 @@ export function computeSmartScore(
     // only while that branch cache entry is still cold so smart sorting stays
     // stable on launch without reviving stale PRs after a cache miss resolves.
     repoMap ? hasRecentPRSignal(worktree, repoMap, prCache) : worktree.linkedPR !== null,
-    now
+    now,
+    ptyIdsByTabId ?? undefined
   )
 }

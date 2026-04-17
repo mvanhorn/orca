@@ -7,6 +7,7 @@ import type {
 } from '../../../shared/types'
 import type { AppState } from '../store'
 import type { OpenFile } from '../store/slices/editor'
+import { hasLivePtyForTab } from './terminal-liveness'
 
 type WorkspaceSessionSnapshot = Pick<
   AppState,
@@ -26,6 +27,7 @@ type WorkspaceSessionSnapshot = Pick<
   | 'groupsByWorktree'
   | 'layoutByWorktree'
   | 'activeGroupIdByWorktree'
+  | 'ptyIdsByTabId'
 >
 
 /** Build the editor-file portion of the workspace session for persistence.
@@ -127,7 +129,7 @@ export function buildWorkspaceSessionPayload(
   snapshot: WorkspaceSessionSnapshot
 ): WorkspaceSessionState {
   const activeWorktreeIdsOnShutdown = Object.entries(snapshot.tabsByWorktree)
-    .filter(([, tabs]) => tabs.some((tab) => tab.ptyId))
+    .filter(([, tabs]) => tabs.some((tab) => hasLivePtyForTab(tab, snapshot.ptyIdsByTabId)))
     .map(([worktreeId]) => worktreeId)
 
   return {

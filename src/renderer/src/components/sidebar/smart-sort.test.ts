@@ -78,8 +78,8 @@ describe('computeSmartScore', () => {
       }
     }
 
-    expect(computeSmartScore(active, null, repoMap, null)).toBeGreaterThan(
-      computeSmartScore(linked, null, repoMap, prCache)
+    expect(computeSmartScore(active, null, null, repoMap, null)).toBeGreaterThan(
+      computeSmartScore(linked, null, null, repoMap, prCache)
     )
   })
 
@@ -95,8 +95,8 @@ describe('computeSmartScore', () => {
       lastActivityAt: NOW - 30 * 60 * 60 * 1000
     })
 
-    expect(computeSmartScore(recent, null, repoMap, null)).toBeGreaterThan(
-      computeSmartScore(stale, null, repoMap, null)
+    expect(computeSmartScore(recent, null, null, repoMap, null)).toBeGreaterThan(
+      computeSmartScore(stale, null, null, repoMap, null)
     )
   })
 
@@ -109,9 +109,9 @@ describe('computeSmartScore', () => {
       [withLiveTerminal.id]: [makeTab({ worktreeId: withLiveTerminal.id, title: 'bash' })]
     }
 
-    expect(computeSmartScore(withLiveTerminal, tabsByWorktree, repoMap, null)).toBeGreaterThan(
-      computeSmartScore(withoutLiveTerminal, tabsByWorktree, repoMap, null)
-    )
+    expect(
+      computeSmartScore(withLiveTerminal, tabsByWorktree, null, repoMap, null)
+    ).toBeGreaterThan(computeSmartScore(withoutLiveTerminal, tabsByWorktree, null, repoMap, null))
   })
 
   it('uses the current branch PR cache instead of persisted linkedPR metadata', () => {
@@ -136,8 +136,8 @@ describe('computeSmartScore', () => {
       }
     }
 
-    expect(computeSmartScore(livePR, null, repoMap, prCache)).toBeGreaterThan(
-      computeSmartScore(staleLinked, null, repoMap, prCache)
+    expect(computeSmartScore(livePR, null, null, repoMap, prCache)).toBeGreaterThan(
+      computeSmartScore(staleLinked, null, null, repoMap, prCache)
     )
   })
 
@@ -153,8 +153,8 @@ describe('computeSmartScore', () => {
       linkedPR: null
     })
 
-    expect(computeSmartScore(linked, null, repoMap, {})).toBeGreaterThan(
-      computeSmartScore(plain, null, repoMap, {})
+    expect(computeSmartScore(linked, null, null, repoMap, {})).toBeGreaterThan(
+      computeSmartScore(plain, null, null, repoMap, {})
     )
   })
 })
@@ -183,7 +183,7 @@ describe('buildWorktreeComparator', () => {
 
     const worktrees = [recent, stale, active]
 
-    worktrees.sort(buildWorktreeComparator('smart', null, repoMap, null, NOW))
+    worktrees.sort(buildWorktreeComparator('smart', null, null, repoMap, null, NOW))
 
     expect(worktrees.map((worktree) => worktree.id)).toEqual(['active', 'recent', 'stale'])
   })
@@ -204,7 +204,7 @@ describe('buildWorktreeComparator', () => {
 
     const worktrees = [second, first]
 
-    worktrees.sort(buildWorktreeComparator('smart', null, repoMap, null, NOW))
+    worktrees.sort(buildWorktreeComparator('smart', null, null, repoMap, null, NOW))
 
     expect(worktrees.map((worktree) => worktree.id)).toEqual(['first', 'second'])
   })
@@ -225,7 +225,7 @@ describe('buildWorktreeComparator', () => {
 
     const worktrees = [beta, alpha]
 
-    worktrees.sort(buildWorktreeComparator('smart', null, repoMap, null, NOW))
+    worktrees.sort(buildWorktreeComparator('smart', null, null, repoMap, null, NOW))
 
     expect(worktrees.map((worktree) => worktree.id)).toEqual(['alpha', 'beta'])
   })
@@ -254,7 +254,7 @@ describe('buildWorktreeComparator', () => {
       }
     }
 
-    worktrees.sort(buildWorktreeComparator('smart', null, repoMap, prCache, NOW))
+    worktrees.sort(buildWorktreeComparator('smart', null, null, repoMap, prCache, NOW))
 
     expect(worktrees.map((worktree) => worktree.id)).toEqual(['live-pr', 'stale-linked'])
   })
@@ -273,7 +273,7 @@ describe('buildWorktreeComparator', () => {
     })
     const worktrees = [plain, coldCache]
 
-    worktrees.sort(buildWorktreeComparator('smart', null, repoMap, {}, NOW))
+    worktrees.sort(buildWorktreeComparator('smart', null, null, repoMap, {}, NOW))
 
     expect(worktrees.map((worktree) => worktree.id)).toEqual(['cold-cache', 'plain'])
   })
@@ -304,7 +304,7 @@ describe('buildWorktreeComparator', () => {
     }
 
     worktrees.sort(
-      buildWorktreeComparator('smart', tabsByWorktree, repoMap, null, NOW, smartSortOverrides)
+      buildWorktreeComparator('smart', tabsByWorktree, null, repoMap, null, NOW, smartSortOverrides)
     )
 
     expect(worktrees.map((worktree) => worktree.id)).toEqual(['background', 'active'])
@@ -332,7 +332,9 @@ describe('buildWorktreeComparator', () => {
       }
     }
 
-    worktrees.sort(buildWorktreeComparator('smart', null, repoMap, null, NOW, smartSortOverrides))
+    worktrees.sort(
+      buildWorktreeComparator('smart', null, null, repoMap, null, NOW, smartSortOverrides)
+    )
 
     expect(worktrees.map((worktree) => worktree.id)).toEqual(['active', 'background'])
   })
@@ -351,7 +353,7 @@ describe('buildWorktreeComparator', () => {
     })
     const worktrees = [background, activeAfterClick]
 
-    worktrees.sort(buildWorktreeComparator('smart', null, repoMap, null, NOW))
+    worktrees.sort(buildWorktreeComparator('smart', null, null, repoMap, null, NOW))
 
     expect(worktrees.map((worktree) => worktree.id)).toEqual(['active', 'background'])
   })
@@ -378,7 +380,7 @@ describe('buildWorktreeComparator', () => {
     }
     const worktrees = [shutdown, justCreated]
 
-    worktrees.sort(buildWorktreeComparator('smart', null, repoMap, prCache, NOW))
+    worktrees.sort(buildWorktreeComparator('smart', null, null, repoMap, prCache, NOW))
 
     expect(worktrees.map((worktree) => worktree.id)).toEqual(['new', 'shutdown'])
   })
@@ -398,7 +400,7 @@ describe('buildWorktreeComparator — recent (sortOrder / creation time)', () =>
     })
     const worktrees = [older, newer]
 
-    worktrees.sort(buildWorktreeComparator('recent', null, repoMap, null, NOW))
+    worktrees.sort(buildWorktreeComparator('recent', null, null, repoMap, null, NOW))
 
     expect(worktrees.map((w) => w.id)).toEqual(['newer', 'older'])
   })
@@ -416,7 +418,7 @@ describe('buildWorktreeComparator — recent (sortOrder / creation time)', () =>
     })
     const worktrees = [legacy, created]
 
-    worktrees.sort(buildWorktreeComparator('recent', null, repoMap, null, NOW))
+    worktrees.sort(buildWorktreeComparator('recent', null, null, repoMap, null, NOW))
 
     expect(worktrees.map((w) => w.id)).toEqual(['created', 'legacy'])
   })
@@ -434,7 +436,7 @@ describe('buildWorktreeComparator — recent (sortOrder / creation time)', () =>
     })
     const worktrees = [bravo, alpha]
 
-    worktrees.sort(buildWorktreeComparator('recent', null, repoMap, null, NOW))
+    worktrees.sort(buildWorktreeComparator('recent', null, null, repoMap, null, NOW))
 
     expect(worktrees.map((w) => w.id)).toEqual(['alpha', 'bravo'])
   })

@@ -3,6 +3,7 @@ import type { AppState } from '@/store/types'
 import { matchesSearch } from './worktree-list-groups'
 import { buildWorktreeComparator, sortWorktreesSmart } from './smart-sort'
 import { useAppStore } from '@/store'
+import { hasLivePtyForTab } from '@/lib/terminal-liveness'
 
 /**
  * Shared pure utility that computes the ordered list of visible (non-archived,
@@ -22,6 +23,7 @@ export function computeVisibleWorktreeIds(
     searchQuery: string
     showActiveOnly: boolean
     tabsByWorktree: Record<string, TerminalTab[]> | null
+    ptyIdsByTabId?: Record<string, string[]>
     browserTabsByWorktree?: Record<string, { id: string }[]> | null
     activeWorktreeId?: string | null
     repoMap: Map<string, Repo>
@@ -51,7 +53,7 @@ export function computeVisibleWorktreeIds(
   if (opts.showActiveOnly) {
     all = all.filter((w) => {
       const tabs = opts.tabsByWorktree?.[w.id] ?? []
-      const hasLiveTerminal = tabs.some((t) => t.ptyId)
+      const hasLiveTerminal = tabs.some((tab) => hasLivePtyForTab(tab, opts.ptyIdsByTabId))
       const hasBrowserTabs = (opts.browserTabsByWorktree?.[w.id] ?? []).length > 0
       // Why: "Active only" should reflect the surfaces Orca can actually
       // restore into, not just PTY-backed terminals. A browser-tab worktree is
@@ -121,14 +123,19 @@ export function getVisibleWorktreeIds(): string[] {
   let sortedIds: string[]
 
   if (state.sortBy === 'smart') {
-    sortedIds = sortWorktreesSmart(allWorktrees, state.tabsByWorktree, repoMap, state.prCache).map(
-      (w) => w.id
-    )
+    sortedIds = sortWorktreesSmart(
+      allWorktrees,
+      state.tabsByWorktree,
+      state.ptyIdsByTabId,
+      repoMap,
+      state.prCache
+    ).map((w) => w.id)
   } else {
     const sorted = [...allWorktrees].sort(
       buildWorktreeComparator(
         state.sortBy,
         state.tabsByWorktree,
+        state.ptyIdsByTabId,
         repoMap,
         state.prCache,
         Date.now()
@@ -142,6 +149,7 @@ export function getVisibleWorktreeIds(): string[] {
     searchQuery: state.searchQuery,
     showActiveOnly: state.showActiveOnly,
     tabsByWorktree: state.tabsByWorktree,
+    ptyIdsByTabId: state.ptyIdsByTabId,
     browserTabsByWorktree: state.browserTabsByWorktree,
     activeWorktreeId: state.activeWorktreeId,
     repoMap,
